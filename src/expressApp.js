@@ -6,7 +6,7 @@ const Promise = require('bluebird');
 const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
 const _ = require('lodash');
-const debug = require('debug');
+const debug = require('debug')('bitgo:express');
 const https = require('https');
 const http = require('http');
 const co = Promise.coroutine;
@@ -90,12 +90,16 @@ function configureEnvironment(args) {
  * @param app
  * @param env
  */
-function configureProxy(app, { env }) {
+function configureProxy(app, { env, timeout }) {
   // Mount the proxy middleware
-  let options = {};
+  const options = {
+    timeout: 500,
+    proxyTimeout: 500
+  };
+
   if (common.Environments[env].network === 'testnet') {
     // Need to do this to make supertest agent pass (set rejectUnauthorized to false)
-    options = { secure: false };
+    options.secure = false;
   }
 
   const proxy = httpProxy.createProxyServer(options);
@@ -106,6 +110,16 @@ function configureProxy(app, { env }) {
 
     const userAgent = req.headers['user-agent'] ? BITGOEXPRESS_USER_AGENT + ' ' + req.headers['user-agent'] : BITGOEXPRESS_USER_AGENT;
     proxyReq.setHeader('User-Agent', userAgent);
+  });
+
+  proxy.on('error', (err, _, res) => {
+    debug('Proxy server error: ', err);
+    res.status(500).send('BitGo Express encountered an error while attempting to proxy your request to BitGo. Please try again.');
+  });
+
+  proxy.on('econnreset', (err, _, res) => {
+    debug('Proxy server connection reset error: ', err);
+    res.status(500).send('BitGo Express encountered a connection reset error while attempting to proxy your request to BitGo. Please try again.');
   });
 
   app.use(function(req, res) {
@@ -214,6 +228,11 @@ module.exports.parseArgs = function() {
     help: 'disable the proxy, not routing any non-express routes'
   });
 
+  parser.addArgument(['-t', '--timeout'], {
+    defaultValue: 1000,
+    help: 'Proxy server timeout in milliseconds'
+  });
+
   return parser.parseArgs();
 };
 
@@ -264,6 +283,8 @@ module.exports.createBaseUri = function({ bind, port }, tls) {
 };
 
 module.exports.app = function(args) {
+  debug('app is initializing');
+
   validateArgs(args);
 
   // Create express app

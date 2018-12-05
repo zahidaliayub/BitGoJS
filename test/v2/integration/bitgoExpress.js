@@ -3,17 +3,18 @@ require('should-http');
 const request = require('supertest-as-promised');
 const co = require('bluebird').coroutine;
 const expressApp = require('../../../src/expressApp').app;
+const nock = require('nock');
+const common = require('../../../src/common');
 
 describe('Bitgo Express', function() {
+  if (process.browser) {
+    // Bitgo Express tests not supported in browser
+    this.skip();
+  }
 
   describe('verify address', function() {
     let agent;
     before(() => {
-      if (process.browser) {
-        // Bitgo Express tests not supported in browser
-        this.skip();
-      }
-
       const args = {
         debug: false,
         env: 'test',
@@ -135,5 +136,51 @@ describe('Bitgo Express', function() {
         res.body.isValid.should.equal(true);
       }));
     });
+  });
+
+  describe('proxy error handling', () => {
+    let agent;
+    before(() => {
+      if (process.browser) {
+        // Bitgo Express tests not supported in browser
+        this.skip();
+      }
+
+      const args = {
+        debug: true,
+        env: 'test',
+        timeout: 500
+      };
+
+      const app = expressApp(args);
+      agent = request.agent(app);
+    });
+
+    it('should handle ECONNRESET errors from the proxy server', co(function *() {
+      const path = '/api/v2/ping';
+
+      // client constants are retrieved upon BitGo
+      // object creation so they need to be nocked
+      nock(common.Environments.test.uri)
+      .get('/api/v1/client/constants')
+      .reply(200, {});
+
+      // first request to ping endpoint should time out
+      nock(common.Environments.test.uri)
+      .post(path)
+      .socketDelay(1000)
+      .reply(200);
+
+      // we should return 500 in the case of a timeout
+      let pingRes = yield agent.post(path).send({});
+      pingRes.should.have.status(500);
+
+      nock(common.Environments.test.uri)
+      .post(path)
+      .reply(200);
+
+      pingRes = yield agent.post(path).send({});
+      pingRes.should.have.status(200);
+    }));
   });
 });
