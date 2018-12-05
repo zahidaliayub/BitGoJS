@@ -6,7 +6,8 @@ const Promise = require('bluebird');
 const fs = Promise.promisifyAll(require('fs'));
 const path = require('path');
 const _ = require('lodash');
-const debug = require('debug')('bitgo:express');
+const debugLib = require('debug');
+const debug = debugLib('bitgo:express');
 const https = require('https');
 const http = require('http');
 const co = Promise.coroutine;
@@ -87,14 +88,15 @@ function configureEnvironment(args) {
 /**
  * Create and configure the proxy middleware and add it to the app middleware stack
  *
- * @param app
- * @param env
+ * @param app bitgo-express Express app
+ * @param env BitGo environment name
+ * @param timeout Request timeout delay in milliseconds
  */
-function configureProxy(app, { env, timeout }) {
+function configureProxy(app, { env, timeout = 5000 }) {
   // Mount the proxy middleware
   const options = {
-    timeout: 500,
-    proxyTimeout: 500
+    timeout: timeout,
+    proxyTimeout: timeout
   };
 
   if (common.Environments[env].network === 'testnet') {
@@ -229,7 +231,7 @@ module.exports.parseArgs = function() {
   });
 
   parser.addArgument(['-t', '--timeout'], {
-    defaultValue: 1000,
+    defaultValue: 5000,
     help: 'Proxy server timeout in milliseconds'
   });
 
@@ -300,7 +302,7 @@ module.exports.app = function(args) {
 
   // enable specified debug namespaces
   if (_.isArray(args.debugnamespace)) {
-    _.forEach(args.debugnamespace, (ns) => debug.enable(ns));
+    _.forEach(args.debugnamespace, (ns) => debugLib.enable(ns));
   }
 
   // Decorate the client routes

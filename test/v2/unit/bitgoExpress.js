@@ -163,7 +163,7 @@ describe('Bitgo Express', function() {
       console.log.restore();
     });
 
-    it('should create correct base URIs', () => {
+    it('should create base URIs', () => {
       const args = {
         bind: '1',
         port: 2
@@ -219,7 +219,7 @@ describe('Bitgo Express', function() {
       debug.enable.restore();
     });
 
-    it('should correctly configure a custom root URI', () => {
+    it('should configure a custom root URI', () => {
       const args = {
         customrooturi: 'customroot'
       };
@@ -230,7 +230,7 @@ describe('Bitgo Express', function() {
       Environments.custom.uri.should.equal(args.customrooturi);
     });
 
-    it('should correctly configure a custom bitcoin network', () => {
+    it('should configure a custom bitcoin network', () => {
       const args = {
         custombitcoinnetwork: 'custombitcoinnetwork'
       };
@@ -241,7 +241,7 @@ describe('Bitgo Express', function() {
       Environments.custom.network.should.equal(args.custombitcoinnetwork);
     });
 
-    it('should correctly configure the request proxy for testnet', () => {
+    it('should configure the request proxy for testnet', () => {
       const onStub = sinon.stub();
       sinon.stub(httpProxy, 'createProxyServer').returns({ on: onStub });
 
@@ -251,8 +251,11 @@ describe('Bitgo Express', function() {
 
       expressApp(args);
 
-      httpProxy.createProxyServer.should.have.been.calledOnceWith({ secure: false });
-      onStub.should.have.been.calledOnceWith('proxyReq');
+      httpProxy.createProxyServer.should.have.been.calledOnceWith({ secure: false, timeout: 5000, proxyTimeout: 5000 });
+      onStub.should.have.been.calledThrice();
+      onStub.should.have.been.calledWith('proxyReq');
+      onStub.should.have.been.calledWith('error');
+      onStub.should.have.been.calledWith('econnreset');
 
       const onCallback = onStub.args[0][1];
 
@@ -267,7 +270,7 @@ describe('Bitgo Express', function() {
       httpProxy.createProxyServer.restore();
     });
 
-    it('should correctly configure the request proxy for mainnet', () => {
+    it('should configure the request proxy for mainnet', () => {
       const onStub = sinon.stub();
       sinon.stub(httpProxy, 'createProxyServer').returns({ on: onStub });
 
@@ -278,8 +281,41 @@ describe('Bitgo Express', function() {
 
       expressApp(args);
 
-      httpProxy.createProxyServer.should.have.been.calledOnceWith({});
-      onStub.should.have.been.calledOnceWith('proxyReq');
+      httpProxy.createProxyServer.should.have.been.calledOnceWith({ timeout: 5000, proxyTimeout: 5000 });
+      onStub.should.have.been.calledThrice();
+      onStub.should.have.been.calledWith('proxyReq');
+      onStub.should.have.been.calledWith('error');
+      onStub.should.have.been.calledWith('econnreset');
+
+      const onCallback = onStub.args[0][1];
+
+      const setHeaderStub = sinon.stub();
+
+      onCallback({ setHeader: setHeaderStub }, { headers: [] });
+
+      setHeaderStub.should.have.been.calledTwice();
+      setHeaderStub.should.have.been.calledWith('host');
+      setHeaderStub.should.have.been.calledWith('User-Agent');
+
+      httpProxy.createProxyServer.restore();
+    });
+
+    it('should configure the request proxy for testnet with custom timeout', () => {
+      const onStub = sinon.stub();
+      sinon.stub(httpProxy, 'createProxyServer').returns({ on: onStub });
+
+      const args = {
+        env: 'test',
+        timeout: 1000
+      };
+
+      expressApp(args);
+
+      httpProxy.createProxyServer.should.have.been.calledOnceWith({ timeout: args.timeout, secure: false, proxyTimeout: args.timeout });
+      onStub.should.have.been.calledThrice();
+      onStub.should.have.been.calledWith('proxyReq');
+      onStub.should.have.been.calledWith('error');
+      onStub.should.have.been.calledWith('econnreset');
 
       const onCallback = onStub.args[0][1];
 
