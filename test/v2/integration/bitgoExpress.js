@@ -141,11 +141,6 @@ describe('Bitgo Express', function() {
   describe('proxy error handling', () => {
     let agent;
     before(() => {
-      if (process.browser) {
-        // Bitgo Express tests not supported in browser
-        this.skip();
-      }
-
       const args = {
         debug: true,
         env: 'test',
