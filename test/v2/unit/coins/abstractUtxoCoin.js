@@ -150,6 +150,16 @@ describe('Abstract UTXO Coin:', () => {
 
     }));
 
+    it('should construct an unsigned recovery transaction for the offline vault', co(function *() {
+      const { params, expectedTxHex } = fixtures.recoverBtcUnsignedFixtures();
+      recoveryNocks.nockBtcUnsignedRecovery();
+      const txPrebuild = yield coin.recover(params);
+      txPrebuild.txHex.should.equal(expectedTxHex);
+      txPrebuild.should.have.property('feeInfo');
+      txPrebuild.coin.should.equal('tbtc');
+      txPrebuild.txInfo.unspents.length.should.equal(2);
+    }));
+
     after(function() {
       nock.cleanAll();
     });
