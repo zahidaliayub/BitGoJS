@@ -1012,7 +1012,6 @@ class AbstractUtxoCoin extends BaseCoin {
       feeInfo: {},
       coin: this.getChain()
     };
-    delete txInfo.inputs;
     _.map(response.txInfo.unspents, function(unspent) {
       const pathArray = unspent.chainPath.split('/');
       // Note this code works because we assume our chainPath is m/0/0/chain/index - this will be incorrect for custom derivation schemes
@@ -1244,7 +1243,7 @@ class AbstractUtxoCoin extends BaseCoin {
         try {
           txInfo.tx = yield this.verifyRecoveryTransaction(txInfo);
         } catch (e) {
-          console.log('Could not verify recovery transaction', e.message);
+          throw new Error('could not verify recovery transaction');
         }
       }
 
